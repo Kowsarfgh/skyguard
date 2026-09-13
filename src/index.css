@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-space-900 bg-space-gradient min-h-screen text-gray-100 font-sans antialiased;
+    background-attachment: fixed;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-space-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-space-500 rounded-md;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-nebula-500;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card-gradient backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white
+      bg-gradient-to-r from-nebula-500 to-indigo-500
+      hover:from-nebula-400 hover:to-indigo-400
+      active:scale-95 transition-all duration-200 shadow-lg shadow-nebula-500/30
+      disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-nebula-300
+      bg-white/5 border border-white/10 hover:bg-white/10 hover:border-nebula-500/50
+      active:scale-95 transition-all duration-200
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl bg-space-700/50 border border-white/10 text-gray-100
+      focus:outline-none focus:ring-2 focus:ring-nebula-500/50 focus:border-nebula-500/50
+      transition-all duration-200 placeholder:text-gray-500;
+  }
+  .risk-badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider;
+  }
+  .risk-badge-low {
+    @apply risk-badge bg-risk-low/20 text-risk-low border border-risk-low/30;
+  }
+  .risk-badge-medium {
+    @apply risk-badge bg-risk-medium/20 text-risk-medium border border-risk-medium/30;
+  }
+  .risk-badge-high {
+    @apply risk-badge bg-risk-high/20 text-risk-high border border-risk-high/30;
+  }
+  .star {
+    @apply absolute rounded-full bg-white animate-twinkle;
+  }
+}
