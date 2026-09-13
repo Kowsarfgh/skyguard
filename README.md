@@ -8,6 +8,88 @@ Architecture is strictly separated into three layers:
 2. **COMPUTATION** — Deterministic Rule-based Risk Engine (scores, factors, safe windows)
 3. **AI** — Gemini interprets the pre-computed Risk Engine results, explains them, and answers follow-up questions. **Gemini never recalculates or invents risk.**
 
+---
+
+## ⚡ Quickest Option for Friends (No Install!) — Deploy to a Host
+
+Your friends **do NOT need to clone and run locally**. Push to GitHub and deploy once — anyone on Earth can open the link in their browser.
+
+### One-click deploys (recommended)
+
+Push this project to GitHub, then click ONE button below:
+
+| Platform | Button | Notes |
+| --- | --- | --- |
+| **Vercel** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYOUR_GITHUB_USERNAME%2FYOUR_REPO_NAME&env=VITE_GEMINI_API_KEY&envDescription=Optional%20Gemini%20API%20key.%20Leave%20blank%20to%20use%20rule-based%20fallback.) | Fastest. Vite autodetected. Demo mode works with NO key. |
+| **Netlify** | [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME) | Drop-and-drag `dist/` also works. |
+| **Cloudflare Pages** | [Deploy →](https://dash.cloudflare.com/?to=/:account/pages/new/provider/github) | Framework preset = Vite. Build cmd `npm run build`, output `dist`. |
+
+**After you deploy once**, give the resulting public URL (`your-app.vercel.app` etc.) to your friends. They just open the link — **NOTHING to install**.
+
+> 💡 **Tip:** Leave `VITE_GEMINI_API_KEY` blank during deploy. The app still works 100% via **Try Demo** and the rule-based fallback. No broken screens!
+
+### Want to test public URL without GitHub?
+Build locally (`npm run build`), upload the **`dist/` folder** as a zip to:
+- https://app.netlify.com/drop — instant live URL, no account required!
+
+---
+
+## 📦 Running Locally — Step-by-Step for Windows / Mac / Linux
+
+### Prerequisites (one time)
+1. Install **Node.js 18+** (20 or 24 recommended) from https://nodejs.org/
+   - Open PowerShell/Terminal and verify with:
+     ```bash
+     node --version   # should print v18+
+     npm --version    # should print v9+
+     ```
+
+### From GitHub (for your friends — 4 commands)
+
+Your friends open **PowerShell (Windows)** or **Terminal (Mac/Linux)** and run these **4 commands exactly**:
+
+```bash
+# 1. Clone your GitHub repo URL
+git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git skyguard
+
+# 2. Go into the project folder
+cd skyguard
+
+# 3. Install dependencies (takes 1–3 min first time)
+npm install
+
+# 4. Start the web app
+npm run dev
+```
+
+When it prints `Local: http://localhost:5173/` they just open that URL in their browser. **Done.**
+
+> ✅ No GitHub? No Node? Send them the live deployed URL instead.
+
+### (Optional) Enable real Gemini explanations
+
+Create a file named `.env.local` next to `package.json` (not inside `src/`):
+
+```dotenv
+# .env.local   — never commit this file!
+VITE_GEMINI_API_KEY=your_actual_gemini_api_key_here
+```
+
+Restart `npm run dev` after creating the file.
+
+Without the key, the app **still works fully** — it uses:
+- Demo mode (mock data Tabriz, Iran)
+- Rule-based fallback explanation engine (clearly watermarked: ⚠ Rule-based fallback · Gemini unavailable)
+
+### Build for production
+
+```bash
+npm run build    # generates dist/ folder
+npm run preview  # runs the production build locally at http://localhost:4173/
+```
+
+---
+
 ## ✨ Features
 
 - 🌍 Interactive **Leaflet + OpenStreetMap** — click anywhere on Earth, drag, zoom, marker, coordinates display, plus Nominatim place search (no paid Google Maps).

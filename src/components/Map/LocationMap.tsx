@@ -5,10 +5,11 @@ import {
   Marker,
   Popup,
   useMap,
-  useMapEvents
+  useMapEvents,
+  LayersControl
 } from "react-leaflet";
 import L from "leaflet";
-import { Search, Navigation, MapPin } from "lucide-react";
+import { Search, Navigation, MapPin, AlertTriangle, Layers } from "lucide-react";
 import type { Coordinates } from "../../types";
 import { geocodeSearch } from "../../services/api";
 import { DEMO_LOCATION } from "../../services/api/mockData";
@@ -25,11 +26,38 @@ const pinIcon = L.divIcon({
   iconAnchor: [20, 48]
 });
 
-function ClickHandler({
-  onPick
-}: {
-  onPick: (coords: Coordinates) => void;
-}) {
+const TILE_LAYERS = [
+  {
+    name: "CartoDB Dark",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap &copy; CARTO"
+  },
+  {
+    name: "OSM Dark (Carto)",
+    url: "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap"
+  },
+  {
+    name: "OpenStreetMap Standard",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19
+  },
+  {
+    name: "OpenTopoMap",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenTopoMap (CC-BY-SA)",
+    maxZoom: 17
+  },
+  {
+    name: "Esri World Imagery",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+    maxZoom: 19
+  }
+];
+
+function ClickHandler({ onPick }: { onPick: (coords: Coordinates) => void }) {
   useMapEvents({
     click(e) {
       onPick({
@@ -56,6 +84,32 @@ function FlyTo({ location }: { location: Coordinates }) {
   return null;
 }
 
+function TileErrorHandler({
+  onFail
+}: {
+  onFail: (layerName: string) => void;
+}) {
+  const map = useMap();
+  const reportedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const tryLayers = [...TILE_LAYERS];
+    map.eachLayer((layer: any) => {
+      if (layer instanceof L.TileLayer) {
+        const url = (layer as any)._url ?? "";
+        const layerName =
+          tryLayers.find((t) => t.url === url)?.name ?? "tiles";
+        layer.on("tileerror", () => {
+          if (!reportedRef.current.has(layerName)) {
+            reportedRef.current.add(layerName);
+            onFail(layerName);
+          }
+        });
+      }
+    });
+  }, [map, onFail]);
+  return null;
+}
+
 export interface LocationMapProps {
   location: Coordinates;
   onChange: (c: Coordinates) => void;
@@ -75,11 +129,17 @@ export function LocationMap({
     Array<{ lat: number; lon: number; label: string }>
   >([]);
   const [showSug, setShowSug] = useState(false);
+  const [failedLayers, setFailedLayers] = useState<Set<string>>(new Set());
+  const [mapError, setMapError] = useState<string | null>(null);
+  const failedCount = failedLayers.size;
 
   const position = useMemo(
     () => [location.latitude, location.longitude] as [number, number],
     [location.latitude, location.longitude]
   );
+
+  const primary = TILE_LAYERS[0];
+  const backup = TILE_LAYERS[2]; // OSM standard guaranteed no key
 
   const onSearch = async (q: string) => {
     if (!q.trim()) {
@@ -87,18 +147,27 @@ export function LocationMap({
       return;
     }
     setSearching(true);
+    setMapError(null);
     try {
       const res = await geocodeSearch(q);
-      setSuggestions(
-        res.map((r) => ({
-          lat: Number(r.lat),
-          lon: Number(r.lon),
-          label: r.display_name
-        }))
-      );
-      setShowSug(true);
-    } catch {
+      if (res.length === 0) {
+        setSuggestions([]);
+        setMapError(`No places found for "${q}". Try clicking the map directly.`);
+      } else {
+        setSuggestions(
+          res.map((r) => ({
+            lat: Number(r.lat),
+            lon: Number(r.lon),
+            label: r.display_name
+          }))
+        );
+        setShowSug(true);
+      }
+    } catch (e) {
       setSuggestions([]);
+      setMapError(
+        "Place search service is currently unavailable. Click anywhere on the map to pick a location."
+      );
     } finally {
       setSearching(false);
     }
@@ -114,32 +183,40 @@ export function LocationMap({
     setQuery("");
   };
 
+  const onTileFail = (name: string) => {
+    setFailedLayers((prev) => {
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
+  };
+
   return (
     <div className="glass-card overflow-hidden relative">
-      <div className="absolute top-3 left-3 right-3 z-[1000] flex gap-2 pointer-events-none">
+      <div className="absolute top-3 left-3 right-3 z-[1000] flex gap-2 pointer-events-none flex-col sm:flex-row">
         <div className="relative flex-1 pointer-events-auto">
           <div className="flex items-center bg-space-900/70 backdrop-blur rounded-xl border border-white/10 px-3 py-2 shadow-lg">
-            <Search className="w-4 h-4 text-nebula-400 mr-2" />
+            <Search className="w-4 h-4 text-nebula-400 mr-2 shrink-0" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onSearch(query)}
-              placeholder="Search city or place..."
-              className="bg-transparent outline-none text-sm flex-1 text-white placeholder:text-gray-400"
+              placeholder="Search city or place... (or click map)"
+              className="bg-transparent outline-none text-sm flex-1 text-white placeholder:text-gray-400 min-w-0"
             />
             {searching && (
-              <div className="w-4 h-4 rounded-full border-2 border-nebula-500/30 border-t-nebula-500 animate-spin" />
+              <div className="w-4 h-4 rounded-full border-2 border-nebula-500/30 border-t-nebula-500 animate-spin shrink-0" />
             )}
             <button
               onClick={() => onSearch(query)}
               disabled={searching}
-              className="ml-2 px-2 py-1 rounded-md bg-nebula-500/20 text-nebula-300 text-xs hover:bg-nebula-500/30 transition"
+              className="ml-2 px-2 py-1 rounded-md bg-nebula-500/20 text-nebula-300 text-xs hover:bg-nebula-500/30 transition shrink-0"
             >
               Go
             </button>
           </div>
           {showSug && suggestions.length > 0 && (
-            <div className="mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-space-900/95 backdrop-blur shadow-2xl">
+            <div className="mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-space-900/95 backdrop-blur shadow-2xl z-[1001]">
               {suggestions.map((s, i) => (
                 <button
                   key={i}
@@ -155,9 +232,31 @@ export function LocationMap({
         </div>
       </div>
 
+      <div className="absolute top-3 right-3 z-[1000] pointer-events-auto hidden sm:block">
+        <div className="bg-space-900/70 backdrop-blur rounded-xl border border-white/10 px-3 py-2 shadow-lg flex items-center gap-2 text-xs text-gray-300">
+          <Layers className="w-3.5 h-3.5 text-nebula-400" />
+          <span className="font-semibold">{failedCount > 0 ? backup.name : primary.name}</span>
+          {failedCount > 0 && (
+            <span className="text-starlight-400 font-bold">fallback</span>
+          )}
+        </div>
+      </div>
+
+      {(mapError || failedCount > 1) && (
+        <div className="absolute top-20 left-3 right-3 z-[1000] pointer-events-auto">
+          <div className="flex items-start gap-2 bg-starlight-500/10 border border-starlight-500/30 text-starlight-300 rounded-xl px-3 py-2 text-xs backdrop-blur">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              {mapError ||
+                `Some map tile sources failed (${failedCount} of ${TILE_LAYERS.length}). Automatically using backup tile layer. Click map to pick location.`}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute bottom-3 left-3 z-[1000] pointer-events-none">
-        <div className="bg-space-900/70 backdrop-blur rounded-xl border border-white/10 px-3 py-2 text-xs font-mono text-gray-200 shadow-lg flex items-center gap-2">
-          <Navigation className="w-3.5 h-3.5 text-nebula-400" />
+        <div className="bg-space-900/70 backdrop-blur rounded-xl border border-white/10 px-3 py-2 text-xs font-mono text-gray-200 shadow-lg flex items-center gap-2 flex-wrap">
+          <Navigation className="w-3.5 h-3.5 text-nebula-400 shrink-0" />
           <span>Lat {location.latitude.toFixed(4)}</span>
           <span className="text-white/20">|</span>
           <span>Lon {location.longitude.toFixed(4)}</span>
@@ -174,14 +273,29 @@ export function LocationMap({
         center={position}
         zoom={7}
         scrollWheelZoom
-        style={{ height, width: "100%" }}
+        style={{ height, width: "100%", background: "#0B0D1E" }}
         worldCopyJump
+        preferCanvas
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          maxZoom={19}
-        />
+        {failedCount === 0 ? (
+          <TileLayer
+            key={primary.name}
+            attribution={primary.attribution}
+            url={primary.url}
+            maxZoom={primary.maxZoom ?? 19}
+          />
+        ) : (
+          <>
+            <TileLayer
+              key={backup.name}
+              attribution={backup.attribution}
+              url={backup.url}
+              maxZoom={backup.maxZoom ?? 19}
+            />
+            <TileErrorHandler onFail={onTileFail} />
+          </>
+        )}
+        <TileErrorHandler onFail={onTileFail} />
         <ClickHandler
           onPick={(c) => onChange({ ...c, placeName: undefined })}
         />
